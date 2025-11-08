@@ -9,7 +9,9 @@
  (provide ;write-divider-string
           test)
     
- 
+(define (delete-line-noyank!)
+   (helix.static.extend_to_line_bounds)
+   (helix.static.delete_selection))
   
 (define (block-comment-line)
    (helix.static.extend_to_line_bounds)
@@ -17,6 +19,14 @@
 
 (define (get-selection-absolute-length)
          (string-length (helix.static.current-highlighted-text!)))
+
+(define (select-line-content!)
+  (helix.static.extend_to_line_bounds)
+  (helix.static.trim_selections))
+
+(define (get-line-content!)
+         (select-line-content!)
+         (helix.static.current-highlighted-text!))
 
 (define (get-block-delim-length)
    (helix.static.open_above)
@@ -28,41 +38,49 @@
     (let* ([total-length (get-selection-absolute-length)]
            [test-char-length 1]
            [block-delim-length (- total-length test-char-length)])
-      total-length))
+             (helix.static.delete_selection_noyank)
+             block-delim-length))
 
-(define (select-line-content-only)
-  (helix.static.extend_to_line_bounds)
-  (helix.static.trim_selections))
 
-(define (make-header line-length outside-delim-length)
-         (let* ([heading (helix.static.current-highlighted-text!)]
-                [heading-length (string-length heading)]
+(define (delete_till_first_nonwhitespace!)
+         (helix.static.goto_line_start)
+         (helix.static.extend_to_first_nonwhitespace)
+         (helix.static.extend_char_left)
+         (helix.static.delete_selection_noyank))
+
+(define (make-header line-length heading outside-delim-length)
+         
+         (let* ([heading-length (string-length heading)]
                 [padding " "]
                 [padded-heading (string-append padding heading padding)])
-                  (if (>= (+ heading outside-delim-length) line-length)
+                  (if (>= (+ heading-length outside-delim-length) line-length)
                   heading
                   padded-heading)))
 
-(define (make-inside-string line-length fill-char outside-delim-length is-header?)
-         (if (not is-header?)
-             (make-string (- line-length 2) fill-char)
-             (make-header line-length outside-delim-length)))
+(define (make-inside-string line-length line-contents fill-char outside-delim-length is-header?)
+         (if is-header?
+             (make-header line-length line-contents outside-delim-length)
+             (make-string (- line-length outside-delim-length) fill-char)))
 
-(define (insert-line line-length filler-char is-header?)
-  (select-line-content-only)
-  (let* ([block-delim-length (get-block-delim-length)]
-         [inside-string (make-inside-string)])
-        [non-filler-length (+ heading-length heading-padding-length block-delim-length)]
-        [fill-string-length (quotient (- line-length non-filler-length) 2 )]
-        [fill-string (make-string fill-string-length filler-char)]
-        [full-string (string-append fill-string padding heading padding fill-string)])
-    (helix.static.add_newline_below)
-    ; (helix.static.extend_to_line_end)
-    ; (helix.static.delete_selection_noyank)
-    ; (helix.static.insert_string full-string)
-    ; (select-line-content-only)
-    ; (helix.static.toggle_block_comments)
+(define (insert-line line-length fill-char is-header?)
+  (let* ([line-contents (get-line-content!)]
+         [block-delim-length (get-block-delim-length)]
+         [inside-string (make-inside-string line-length line-contents fill-char block-delim-length is-header?)])
+           (helix.static.insert_string inside-string)
+           (select-line-content!)
+           (helix.static.toggle_block_comments)
+           (helix.static.flip_selections)
+           (when (not (= (helix.static.get-current-column-number) 0))
+                 (delete_till_first_nonwhitespace!))
+           (when is-header?
+                 (helix.static.move_line_down)
+                 (delete-line-noyank!))
     ))
 
+ 
+ 
+
+
+
 (define (test)
-         (insert-line 80 #\a))
+        (insert-line 80 #\a #t))
