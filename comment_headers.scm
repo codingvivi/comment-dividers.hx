@@ -1,74 +1,68 @@
+; (require  "helix/editor.scm")
 (require (prefix-in helix. "helix/commands.scm"))
-(require (prefix-in helix.static "helix/static.scm"))
-(require (prefix-in helix. "helix/editor.scm"))
+(require (prefix-in helix.components. "helix/components.scm"))
+(require (prefix-in helix.static. "helix/static.scm"))
+(require (prefix-in helix.keymaps. "helix/keymaps.scm"))
+(require (prefix-in helix.misc. "helix/misc.scm"))
+(require (prefix-in pphx.selection. "./core/selection.scm"))
 
-(define (make-language-header-settings line-p block-p filler)
-  (hash 'line-prefix line-p
-        'block-prefix block-p
-        'filler_char filler))
+ (provide ;write-divider-string
+          test)
+    
+ 
+  
+(define (block-comment-line)
+   (helix.static.extend_to_line_bounds)
+   (helix.static.toggle_block_comments))
 
-(define language-settings-db
-  (let* ([standard-filler "~"]
-         [c-family-settings (make-language-header-settings  "//" "/*" standard-filler)])
-    (hash
-     "c" c-family-settings
-     "cpp" c-family-settings
-     "hpp" c-family-settings
-     "scm" (make-language-header-settings ";;" "#|" standard-filler))))
+(define (get-selection-absolute-length)
+         (string-length (helix.static.current-highlighted-text!)))
 
+(define (get-block-delim-length)
+   (helix.static.open_above)
+   (helix.static.insert_char #\o)
+   (helix.static.normal_mode)
+   (helix.static.extend_to_line_bounds)
+   (helix.static.trim_selections)
+   (helix.static.toggle_block_comments)
+    (let* ([total-length (get-selection-absolute-length)]
+           [test-char-length 1]
+           [block-delim-length (- total-length test-char-length)])
+      total-length))
 
-(define (get-selection-length)
-  (string-length (helix.current_selection)))
+(define (select-line-content-only)
+  (helix.static.extend_to_line_bounds)
+  (helix.static.trim_selections))
 
-(define (reverse-string str)
-  (list->string (reverse (string->list str))))
+(define (make-header line-length outside-delim-length)
+         (let* ([heading (helix.static.current-highlighted-text!)]
+                [heading-length (string-length heading)]
+                [padding " "]
+                [padded-heading (string-append padding heading padding)])
+                  (if (>= (+ heading outside-delim-length) line-length)
+                  heading
+                  padded-heading)))
 
+(define (make-inside-string line-length fill-char outside-delim-length is-header?)
+         (if (not is-header?)
+             (make-string (- line-length 2) fill-char)
+             (make-header line-length outside-delim-length)))
 
-(define (get-delims language-settings)
-  (let* ([line-prefix (hash-ref language-settings 'line-prefix)]
-         [block-prefix (hash-ref language-settings 'block-prefix)])
-    (if (= (string-length block-prefix) 0)
-        (values block-prefix (reverse-string block-prefix))
-        (values line-prefix line-prefix))))
+(define (insert-line line-length filler-char is-header?)
+  (select-line-content-only)
+  (let* ([block-delim-length (get-block-delim-length)]
+         [inside-string (make-inside-string)])
+        [non-filler-length (+ heading-length heading-padding-length block-delim-length)]
+        [fill-string-length (quotient (- line-length non-filler-length) 2 )]
+        [fill-string (make-string fill-string-length filler-char)]
+        [full-string (string-append fill-string padding heading padding fill-string)])
+    (helix.static.add_newline_below)
+    ; (helix.static.extend_to_line_end)
+    ; (helix.static.delete_selection_noyank)
+    ; (helix.static.insert_string full-string)
+    ; (select-line-content-only)
+    ; (helix.static.toggle_block_comments)
+    ))
 
-(define (get-current-lang)
-     (let* ([focus (helix.editor-focus)]
-            [doc-id (helix.editor->doc-id focus)])
-       (helix.editor-document->language doc-id)))
-
-; (define (repeat n action)
-;   (let loop ([i 0])
-;     (when (< i n)
-;           (action)
-;           (loop (+ i 1)))))
-
-use the inbuilt block comment function! 
-
-
-; (define (get-fill-string-length line-length heading prefix-delim postfix-delim)
-;   (let* ([heading-length (string-length heading)]
-;          [prefix-length (+ (string-length prefix-delim) 1)]
-;          [postfix-length (+ (string-length postfix-delim) 1)])
-;     (/ (- line-length heading-length prefix-length postfix-length) 2)))
-
-; (define (concat-line line-length heading prefix-delim postfix-delim filler-char)
-;   (let* ([fill-string-length (get-fill-string-length line-length heading prefix-delim postfix-delim)]
-;          [fill-string (make-string fill-string-length filler-char)])
-;     (make-string prefix-delim " " fill-string heading fill-string postfix-delim)))
-
-(define (make-line language heading)
-  (define (language-settings (hash-ref language-settings-db language))))
-
-;  (define (make-header)
-;    ;; get language
-   
-;    ;;get what chars to use
-   
-;    (define settings (hash-ref language-settings-db current-language "c"))
-;    (let-values (((start-delim end-delim)(get-delims settings)
-;             ))))
-     
-   
-
-
-; ; (provide make-header)
+(define (test)
+         (insert-line 80 #\a))
