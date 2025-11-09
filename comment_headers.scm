@@ -53,76 +53,51 @@
          (helix.static.extend_char_left)
          (helix.static.delete_selection_noyank))
 
-; (define (get-fill-string-len line-length heading)
-;          (let* ([heading-length (string-length heading)]
-;                 [padding-length 2]
-;                 [to-fill-length (- line-length heading-length padding-length)])
-;                   (quotient to-fill-length 2)))
-                 
-; (define (get-heading-contents line-length heading outside-delim-length)
-;          (let* ([heading-length (string-length heading)]
-;                 [diff-linelen-headinglen (- line-length heading-length)]
-;                 [minimum-padding 4])
-;                   (if (< diff-linelen-headinglen minimum-padding)
-;                       heading
-;                       (make-enclosed-heading line-length))
 
-;                 ))
-
-; (define (make-inside-string line-length line-contents fill-char outside-delim-length is-header?)
-;          (if is-header?
-;              (make-header line-length line-contents outside-delim-length)
-;              (make-string (- line-length outside-delim-length) fill-char)))
-
-(define (insert-string)
-  #t)
+(define (string-repeat s n)
+  (let loop ((count n) (result ""))
+    (if (<= count 0)
+        result
+        (loop (- count 1) (string-append result s)))))
 
 (define (insert-line line-length fill-pattern is-header? [padding-pattern " "])
-         ;; empty heading & fill string
-         (let ([heading ""]
-               [fill-string ""]
-               [padding ""])
-                  ;; if constructing header, cut out line contents
-                  (when is-header?
-                        (string-append heading (get-line-content!))
-                        (delete-line-noyank!)
-                        (string-append padding padding-pattern))
-                  ;; calculate length to fill
-                   (let* ([heading-length (string-length heading)]
-                          [delim-length (get-block-delim-length)]
-                          [padding-length (string-length padding)]
-                          [fill-pattern-length (string-length fill-pattern)]
-                          [minimum-enclosure-length (* (+ padding-length fill-pattern-length) 2)]
-                          [to-fill-length (max 0 (- line-length heading-length delim-length))])
-                           ; if we're filling out the area between comment block delims
-                           (when (<= minimum-enclosure-length to-fill-length)
-                                 (let* ([fill-string-length (- (/ to-fill-length 2) padding-length)]
-                                        [pattern-repetitions (quotient fill-string-length fill-pattern-length)])
-                                          (do-n-times (string-append fill-string fill-pattern) pattern-repetitions)))
-                           (string-append fill-string padding heading padding (reverse fill-string))
-                           ; (insert-string)
-                           )))
+  ;; determine heading and padding
+  (let* ([actual-heading (if is-header? (get-line-content!) "")]
+         [actual-padding (if is-header? padding-pattern "")])
+
+    ;; delete original line if heading was yoinked
+    (when is-header?
+      (delete-line-noyank!))
+
+    ;; calculate lengths
+    (let* ([heading-length (string-length actual-heading)]
+           [delim-length (get-block-delim-length)]
+           [padding-length (string-length actual-padding)]
+           [fill-pattern-length (string-length fill-pattern)]
+           [minimum-enclosure-length (* (+ padding-length fill-pattern-length) 2)]
+           [to-fill-length (max 0 (- line-length heading-length delim-length))])
+
+      ;; build fill string
+      (let ((fill-string (if (<= minimum-enclosure-length to-fill-length)
+                             (let* ([fill-string-length (floor (- (/ to-fill-length 2) padding-length))]
+                                    [pattern-repetitions (quotient fill-string-length fill-pattern-length)])
+                               (string-repeat fill-pattern pattern-repetitions))
+                             "")))
+
+        ;; construct the final line..
+        (let ([final-line (string-append fill-string actual-padding actual-heading actual-padding fill-string)])
+          ;; ...and paste her...
+          (helix.static.insert_string final-line)
+          ;; shes beautiful she deserves a snuggly comment block
+          (select-line-content!)
+          (helix.static.toggle_block_comments)
+          ;; remove possible whitespace
+          (helix.static.flip_selections)
+          (when (not (= (helix.static.get-current-column-number) 0))
+                (delete_till_first_nonwhitespace!)))))))
+        ;;donezo garbonzo
                            
-         ;           (let* ([line-contents]
-         ; [block-delim-length (get-block-delim-length)]
-         ; )
-         ;   )
-         ;   ()
-
-
-         ; [inside-string (make-inside-string line-length line-contents fill-char block-delim-length is-header?)])
-         ;   (helix.static.insert_string inside-string)
-         ;   (select-line-content!)
-         ;   (helix.static.toggle_block_comments)
-         ;   (helix.static.flip_selections)
-         ;   (when (not (= (helix.static.get-current-column-number) 0))
-         ;         (delete_till_first_nonwhitespace!))
-         ;   (when is-header?
-         ;         (helix.static.move_line_down)
-         ;         (delete-line-noyank!))))
-
- 
- 
+     
          
 
 
