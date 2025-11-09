@@ -1,10 +1,4 @@
-; (require  "helix/editor.scm")
-(require (prefix-in helix. "helix/commands.scm"))
-(require (prefix-in helix.components. "helix/components.scm"))
 (require (prefix-in helix.static. "helix/static.scm"))
-(require (prefix-in helix.keymaps. "helix/keymaps.scm"))
-(require (prefix-in helix.misc. "helix/misc.scm"))
-(require (prefix-in pphx.selection. "./core/selection.scm"))
 
  (provide ;write-divider-string
           test)
@@ -33,6 +27,18 @@
          (select-line-content!)
          (helix.static.current-highlighted-text!))
 
+
+(define (split-list-even list)
+(let* ([list-length (length list)]
+      [midpoint (/ list-length 2)])
+  (values (take list midpoint)
+          (drop list midpoint))))
+
+(define (remove-element list element-to-remove)
+  (filter (lambda (item)
+                  (not (equal? item element-to-remove)))
+          list))
+
 (define (get-block-delim-length)
    (helix.static.open_above)
    (helix.static.insert_char #\o)
@@ -46,13 +52,28 @@
              (helix.static.delete_selection_noyank)
              block-delim-length))
 
+(define (get-block-delims)
+   (helix.static.open_above)
+   (helix.static.insert_string "test_string")
+   (helix.static.normal_mode)
+   (block-comment-line)
+   (let* ([commented-test-string (helix.static.current-highlighted-text!)]
+         [strings-without-whitespace (split-whitespace commented-test-string)])
+     (delete-line-noyank!)
+     (values (first strings-without-whitespace)
+             (last strings-without-whitespace))))
+
+    ; (let* ([total-length (get-selection-absolute-length)]
+    ;        [test-char-length 1]
+    ;        [block-delim-length (- total-length test-char-length)])
+    ;          
+    ;          block-delim-length))
 
 (define (delete_till_first_nonwhitespace!)
          (helix.static.goto_line_start)
          (helix.static.extend_to_first_nonwhitespace)
          (helix.static.extend_char_left)
          (helix.static.delete_selection_noyank))
-
 
 (define (string-repeat s n)
   (let loop ((count n) (result ""))
@@ -89,17 +110,26 @@
           ;; ...and paste her...
           (helix.static.insert_string final-line)
           ;; shes beautiful she deserves a snuggly comment block
-          (select-line-content!)
-          (helix.static.toggle_block_comments)
+          ; (select-line-content!)
+          ; (helix.static.toggle_block_comments)
           ;; remove possible whitespace
-          (helix.static.flip_selections)
-          (when (not (= (helix.static.get-current-column-number) 0))
-                (delete_till_first_nonwhitespace!)))))))
+          ; (helix.static.flip_selections)
+          ; (when (not (= (helix.static.get-current-column-number) 0))
+                ; (delete_till_first_nonwhitespace!))
         ;;donezo garbonzo
                            
-     
+)))))     
          
 
+(define (insert-single-line-heading line-length fill-pattern [padding-pattern " "])
+  (insert-line line-length fill-pattern #t padding-pattern))
 
-(define (test)
-        (insert-line 80 "a" #t))
+(define (insert-divider-line line-length fill-pattern)
+  (insert-line line-length fill-pattern #f ""))
+
+(define (insert-multi-line-heading line-length [padding-pattern " "])
+  (insert-line line-length " " #t padding-pattern))                                                                         
+                                                                                                                                                  
+
+(define (test)  
+(get-block-delims))
