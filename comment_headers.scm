@@ -8,6 +8,22 @@
     (action)
     (do-n-times action (- n 1))))
 
+(define (repeat val times)
+  (cond
+	[(and (integer? times) (> times 0))
+		(map (λ (_) val) (range 0 times))]
+	[else
+	  (error 'invalid-arg "'times' must be a positive nonzero integer.")]))
+
+(define (intersperse lst char)
+  (let* ([num-in-between-spaces (- (length lst) 1)]
+         [filler-list (repeat char num-in-between-spaces)])
+  (interleaving lst filler-list)))
+
+(define (move-current-line-down!)
+    (helix.static.open_above)
+    (helix.static.normal_mode))
+
 (define (delete-line-noyank!)
    (helix.static.extend_to_line_bounds)
    (helix.static.delete_selection))
@@ -63,12 +79,6 @@
      (values (first strings-without-whitespace)
              (last strings-without-whitespace))))
 
-    ; (let* ([total-length (get-selection-absolute-length)]
-    ;        [test-char-length 1]
-    ;        [block-delim-length (- total-length test-char-length)])
-    ;          
-    ;          block-delim-length))
-
 (define (delete_till_first_nonwhitespace!)
          (helix.static.goto_line_start)
          (helix.static.extend_to_first_nonwhitespace)
@@ -81,55 +91,78 @@
         result
         (loop (- count 1) (string-append result s)))))
 
-(define (insert-line line-length fill-pattern is-header? [padding-pattern " "])
+(define (make-line line-length fill-pattern is-header? [padding " "])
   ;; determine heading and padding
-  (let* ([actual-heading (if is-header? (get-line-content!) "")]
-         [actual-padding (if is-header? padding-pattern "")])
+  (let* ([heading (if is-header? (get-line-content!) "")]
+         [padding-heading (if is-header? padding "")])  
+      ;; get delims
+      (let* ([block-delims (get-block-delims)]
+             [full-start-delim (string-append (car block-delims) padding)]
+             [full-end-delim (string-append padding (cadr block-delims))]
+             ;;calculate lengths
+             [padding-heading-length (string-length padding-heading)]
+             [heading-length (string-length heading)] 
+             [padded-heading-length (string-append )]
+             [full-delim-length (+ (string-length full-start-delim)
+                               (string-length full-end-delim))]
+             [fill-pattern-length (string-length fill-pattern)]
+             [minimum-enclosure-length (* (+ padding-heading-length fill-pattern-length)2)]
+             [to-fill-length (max 0 (- line-length heading-length full-delim-length))])
+  
+        ;; build fill string
+        (let ([fill-string (if (<= minimum-enclosure-length to-fill-length)
+                               (let* ([fill-string-length (floor (- (/ to-fill-length 2) padding-heading-length))]
+                                      [pattern-repetitions (quotient fill-string-length fill-pattern-length)])
+                                 (string-repeat fill-pattern pattern-repetitions))
+                               "")])
+          ;; construct the final line..
+          (string-append full-start-delim fill-string padding-heading heading padding-heading fill-string full-end-delim)))))
 
-    ;; delete original line if heading was yoinked
-    (when is-header?
-      (delete-line-noyank!))
 
-    ;; calculate lengths
-    (let* ([heading-length (string-length actual-heading)]
-           [delim-length (get-block-delim-length)]
-           [padding-length (string-length actual-padding)]
-           [fill-pattern-length (string-length fill-pattern)]
-           [minimum-enclosure-length (* (+ padding-length fill-pattern-length) 2)]
-           [to-fill-length (max 0 (- line-length heading-length delim-length))])
+ (define (make-heading-list line-length fill-pattern [padding-pattern " "] [heading-level 1] [max-level 3])
 
-      ;; build fill string
-      (let ((fill-string (if (<= minimum-enclosure-length to-fill-length)
-                             (let* ([fill-string-length (floor (- (/ to-fill-length 2) padding-length))]
-                                    [pattern-repetitions (quotient fill-string-length fill-pattern-length)])
-                               (string-repeat fill-pattern pattern-repetitions))
-                             "")))
+  (let* ([distance-from-lowest-level (- max-level heading-level)]
+         [headline-string (if (= distance-from-lowest-level 0)
+                              (make-line line-length fill-pattern #t padding-pattern)
+                              (make-line line-length " " #t padding-pattern))]
+         [divider-line-string (if (>= distance-from-lowest-level 1)
+                                  (make-line line-length fill-pattern #f padding-pattern)
+                                  "")]
+         [padding-line-string (if (>= distance-from-lowest-level 2)
+                                  (make-line line-length fill-pattern #f padding-pattern)
+                                  "")]
+         [max-line-above-heading (- max-level 1)])
+    
+    (define (construct-lines line-above-heading)
+      (if (= line-above-heading 0)
+          '()
+          (if (< line-above-heading max-line-above-heading)      
+              (cons padding-line-string (construct-lines (- line-above-heading 1)))
+              (cons divider-line-string (construct-lines (- line-above-heading 1))))))
 
-        ;; construct the final line..
-        (let ([final-line (string-append fill-string actual-padding actual-heading actual-padding fill-string)])
-          ;; ...and paste her...
-          (helix.static.insert_string final-line)
-          ;; shes beautiful she deserves a snuggly comment block
-          ; (select-line-content!)
-          ; (helix.static.toggle_block_comments)
-          ;; remove possible whitespace
-          ; (helix.static.flip_selections)
-          ; (when (not (= (helix.static.get-current-column-number) 0))
-                ; (delete_till_first_nonwhitespace!))
-        ;;donezo garbonzo
-                           
-)))))     
-         
+    (let* ([encl-lines-top (construct-lines max-line-above-heading)]
+          [encl-lines-bottom (reverse encl-lines-top)])
+      (string-append encl-lines-top headline-string encl-lines-bottom))))                            
 
-(define (insert-single-line-heading line-length fill-pattern [padding-pattern " "])
-  (insert-line line-length fill-pattern #t padding-pattern))
+(define (insert-header! line-length fill-pattern line-length fill-pattern [padding-pattern " "] [heading-level 1] [max-level 3])
+  (let* ([header-items (make-heading-list line-length fill-pattern padding-pattern heading-level max-level)]
+         [header-string (list->string (intersperse header-items #\newline))])
+    (delete-line-noyank!)
+    (helix.static.insert_string header-string)))
 
-(define (insert-divider-line line-length fill-pattern)
-  (insert-line line-length fill-pattern #f ""))
 
-(define (insert-multi-line-heading line-length [padding-pattern " "])
-  (insert-line line-length " " #t padding-pattern))                                                                         
-                                                                                                                                                  
+(define (insert-divider-line line-length fill-pattern [padding-pattern " "])
+  (let ([divider-string (make-line line-length fill-pattern #f padding-pattern)])
+    (move-current-line-down!)
+    (helix.static.insert_string divider-string)))
 
-(define (test)  
-(get-block-delims))
+  ; (let ([single-line-header-string 
+  ;       [multi-line-header-string (make-line line-length " " #t padding-pattern)]
+  ;       [divider-line-string (make-line line-length fill-pattern #f padding-pattern)]
+  ;       [padding-line-string (make-line line-length " " #f padding-pattern)])
+  ;   (delete-line-noyank!)))
+
+
+
+; (define (test)
+  ; (insert-multi-line-heading 80))
