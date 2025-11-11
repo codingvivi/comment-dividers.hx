@@ -6,8 +6,13 @@
           insert-h2!
           insert-h3!)
     
-(define (string-not-empty? str)
-  (> (string-length str) 0))
+#| ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |#
+#|                                                                            |#
+#|                                  helpers                                   |#
+#|                                                                            |#
+#| ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |#
+
+#| ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ general ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |#
 
 (define (do-n-times action n)
   (when (> n 0)
@@ -20,6 +25,33 @@
 		(map (λ (_) val) (range 0 times))]
 	[else
 	  (error 'invalid-arg "'times' must be a positive nonzero integer.")]))
+
+(define (remove-element list element-to-remove)
+  (filter (lambda (item)
+                  (not (equal? item element-to-remove)))
+          list))
+
+(define (split-list-even list)
+(let* ([list-length (length list)]
+      [midpoint (/ list-length 2)])
+  (values (take list midpoint)
+          (drop list midpoint))))
+
+
+(define (string-not-empty? str)
+  (> (string-length str) 0))
+
+(define (string-repeat s n)
+  (let loop ((count n) (result ""))
+    (if (<= count 0)
+        result
+        (loop (- count 1) (string-append result s)))))
+
+(define (only-whitespace? str)
+  (for-each (list->string str)))
+
+
+#| ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ helix ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |#
 
 (define (move-current-line-down!)
     (helix.static.open_above)
@@ -44,16 +76,8 @@
          (select-line-content!)
          (helix.static.current-highlighted-text!))
 
-(define (split-list-even list)
-(let* ([list-length (length list)]
-      [midpoint (/ list-length 2)])
-  (values (take list midpoint)
-          (drop list midpoint))))
 
-(define (remove-element list element-to-remove)
-  (filter (lambda (item)
-                  (not (equal? item element-to-remove)))
-          list))
+#| ~~~~~~~~~~~~~~~~~~~~~~~~~~~ line construction ~~~~~~~~~~~~~~~~~~~~~~~~~~~ |#
 
 (define (get-block-delim-length)
    (helix.static.open_above)
@@ -85,20 +109,12 @@
          (helix.static.extend_char_left)
          (helix.static.delete_selection_noyank))
 
-(define (string-repeat s n)
-  (let loop ((count n) (result ""))
-    (if (<= count 0)
-        result
-        (loop (- count 1) (string-append result s)))))
 
-(define (only-whitespace? str)
-  (for-each (list->string str)))
-
-; (define (is-header? content-str)
-;   (if (and (string-not-empty? content-str))
-;       #t)
-;   #t)
-
+#| ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |#
+#|                                                                            |#
+#|                             divider functions                              |#
+#|                                                                            |#
+#| ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |#
 
 (define (make-line line-length line-content fill-pattern [padding " "])
   ;; determine heading and padding
@@ -166,6 +182,12 @@
                       (helix.static.insert_newline))
               header-lines)))
 
+#| ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |#
+#|                                                                            |#
+#|                                 templates                                  |#
+#|                                                                            |#
+#| ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |#
+
 (define (insert-h1!)
   (insert-header! 80 "~" 1 3))
 
@@ -181,7 +203,3 @@
     (helix.static.insert_string divider-string)))
 
 
-
-; (define (test number)
-  ; (when (zero? (string->int number))
-        ; (insert-header! 80 "~" " " 1 1)))
